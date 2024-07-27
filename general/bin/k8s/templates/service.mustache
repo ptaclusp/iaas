@@ -1,14 +1,29 @@
     {{#items}}
         {{entity}}.{{metadata.uid}}:
             id: {{metadata.uid}}
+            safeID: {{safeID}}
             name: {{metadata.name}}
             type: {{spec.type}}
             namespace: {{parent.entity}}.{{parent.item.metadata.uid}}
             namespace-name: {{parent.item.metadata.name}}
             ports:
             {{#spec.ports}}
-                - port: {{port}}
+                - name: {{name}}
+                  port: {{port}}
                   targetPort: {{target_port}}
                   nodePort: {{node_port}}
+                  protocol: {{protocol}}
             {{/spec.ports}}
+            {{#spec.selector}}
+            selector:
+            {{#iterator}}
+                @kv{{{.}}}
+            {{/iterator}}
+            {{/spec.selector}}
+            {{#metadata.labels}}
+            labels:
+                {{#iterator}}
+                @kv{{{.}}}
+                {{/iterator}}
+            {{/metadata.labels}}
     {{/items}}

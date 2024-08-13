@@ -89,7 +89,7 @@ entities:
                         $cluster := $."seaf.ta.services.k8s".$spread()[$keys()[0] = $params.id];
                         $cluster_name := $cluster.*.kubernetes_id; 
                     
-                        $cluster_nodes := $."seaf.ta.reverse.k8s.node".*[cluster = $params.id];
+                        $cluster_nodes := $."seaf.ta.components.k8s.node".*[cluster = $params.id];
                         $c := $count($cluster_nodes);
                     
                         $nodes  := {
@@ -116,7 +116,7 @@ entities:
                                     "symbol" : "node-" & $.id & "-icon",
                                     "icon"   : "k8snode",
                                     "hideTitle" : true,
-                                    "link" : '/entities/seaf.ta.reverse.k8s.node/get_node?id=' & $.id
+                                    "link" : '/entities/seaf.ta.components.k8s.node/get_node?id=' & $.id
                                 }
                             }       
                         );

@@ -1,5 +1,5 @@
 entities:
-    seaf.ta.components.k8s.cluser:
+    seaf.ta.components.k8s.cluster:
         title: кластер Kubernetes
         objects:
             cluster:

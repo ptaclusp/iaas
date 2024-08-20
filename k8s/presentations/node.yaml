@@ -16,7 +16,7 @@ entities:
                   link: link
                 source: > 
                     (
-                        $nodes := $."seaf.ta.reverse.k8s.node"; 
+                        $nodes := $."seaf.ta.components.k8s.node"; 
                         [$nodes.$spread().(
                             {
                                 "name" : $.*.name,

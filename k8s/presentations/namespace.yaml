@@ -1,12 +1,12 @@
 entities:
-    seaf.ta.components.k8s.namespace:
+    seaf.ta.components.k8s_namespace:
         presentations:
             get:
                 type: markdown
                 template: templates/namespace.md
                 source: >
                     (
-                        $namespace := $."seaf.ta.components.k8s.namespace".$spread()[$.*.id = $params.id];
+                        $namespace := $."seaf.ta.components.k8s_namespace".$spread()[$.*.id = $params.id];
                         {                        
                             "id"            : $params.id,
                             "name"          : $namespace.*.name
@@ -17,23 +17,29 @@ entities:
                 template: templates/namespace.puml
                 source: >
                     (
-                        $nsid       := "seaf.ta.components.k8s.namespace." & $params.id;
-                        $namespace  := $lookup($."seaf.ta.components.k8s.namespace", $nsid);
+                        $nsid       := "seaf.ta.components.k8s_namespace." & $params.id;
+                        $namespace  := $lookup($."seaf.ta.components.k8s_namespace", $nsid);
                     
-                        $namespace_services       := $."seaf.ta.components.k8s.service".*[namespaceID = $nsid];
-                        $namespace_deployments    := $."seaf.ta.components.k8s.deployment".*[namespaceID = $nsid];
-                        $namespace_stateful_sets  := $."seaf.ta.components.k8s.stateful_set".*[namespaceID = $nsid];
-                    
-                        $pvcs := $."seaf.ta.components.k8s.pvc".*[namespaceID = $nsid];
+                        $services       := $."seaf.ta.components.k8s_service".*[namespace_id = $nsid];
+                        $deployments    := $."seaf.ta.components.k8s_deployment".*[namespace_id = $nsid];
+                        /* $statefulsets   := $."seaf.ta.components.k8s_stateful_set".*[namespaceID = $nsid]; */
+                        $pvcs           := $."seaf.ta.components.k8s_pvc".*[namespace_id = $nsid];
                         
+                        /* слияние деплойментов и stateful sets для определения связей */
+                        $deployments  := $deployments ~> | $ | { "type": "deployment"}|;
+                        $statefulsets := $statefulsets ~> | $ | { "type": "statefulset"}|;
+                        $targets := $append($deployments, $statefulsets);
+                    
                         /* определение связей между сервисами и деплойментами */
-                        $namespace_links     := $namespace_services.(
-                                $service := $;
-                                $selector := $service.selector;
+                        $links     := $services.(
+                                $service        := $;
+                                $selector       := $service.selector;
                                 $selectorLabels := $keys($service.selector);
-                                $deployments := $filter($namespace_deployments, function($deployment) {
+                    
+                                /* filter linked deployments and SSs */
+                                $items := $filter($targets, function($item) {
                                     (
-                                        $labels := $deployment.labels;
+                                        $labels := $item.labels;
                                         $mismatches := $filter($selectorLabels, function($key) {
                                             (
                                                 $depLabel := $lookup($labels, $key);
@@ -46,36 +52,23 @@ entities:
                                     )
                                 });
                     
-                                $statefulSets := $filter($namespace_stateful_sets, function($deployment) {
-                                    (
-                                        $labels := $deployment.labels;
-                                        $mismatches := $filter($selectorLabels, function($key) {
-                                            (
-                                                $depLabel := $lookup($labels, $key);
-                                                $selLabel := $lookup($selector, $key); 
-                                                $not ($depLabel = $selLabel);
-                                            )
-                                        });
-                    
-                                        $not($count($mismatches) > 0); 
-                                    )
-                                });
-
                                 {
-                                    "service"       : $service,
-                                    "deployments"   : $deployments,
-                                    "stateful_sets" : $statefulSets
+                                    "source"       : $service,
+                                    "targets"      : $items
                                 }       
                         );
                     
                         /* связи между volume и persistent volume claim */
-                        $pvc_links := $filter($namespace_deployments.volumes, function($v) { $exists($v.claim)} );
+                        $pvc_links := $filter($targets.volumes, function($v) { $exists($v.claim)} );
                     
                         /* связи между pv и pvc */
                     
-                        $pvs := $."seaf.ta.components.k8s.pv".*[claimRef.namespace = $namespace.name];
-                        
+                        $pvs := $."seaf.ta.components.k8s_pv".*[claim_ref.namespace = $namespace.title];
+                    
                         /*
+                        $log($deployments, "deployments");
+                        $log($links, "links");
+                        $log($targets, "targets");
                         $log($namespace, "namespace");
                         $log($pvs, "pvs");
                         $log($pvc_links, "pvc_links");
@@ -88,13 +81,12 @@ entities:
                         */
                         {
                             "namespace" : $namespace,
-                            "services"  : $namespace_services,
-                            "deployments" : $namespace_deployments,
-                            "stateful_sets" : $namespace_stateful_sets,
-                            "links" : $namespace_links,
+                            "services"  : $services,
+                            "links" : $links,
                             "pvcs" : $pvcs,
                             "pvcLinks" : $pvc_links,
-                            "pvs" : $pvs
+                            "pvs" : $pvs,
+                            "targets" : $targets
                         }
                     )
             namespace_schema:
@@ -191,12 +183,12 @@ entities:
                       link: link
                 source: >
                     (
-                        $nsid := "seaf.ta.components.k8s.namespace." & $params.id;
-                        $deployments := $."seaf.ta.components.k8s.deployment".$spread()[*.namespaceID = $nsid];
+                        $nsid := "seaf.ta.components.k8s_namespace." & $params.id;
+                        $deployments := $."seaf.ta.components.k8s_deployment".$spread()[*.namespace_id = $nsid];
                         [$deployments.$spread().(
                             {
-                                "name" : $.*.name,
-                                "link" : '/entities/seaf.ta.components.k8s.deployment/get?id=' & $.*.id
+                                "name" : $.*.title,
+                                "link" : '/entities/seaf.ta.components.k8s_deployment/get?id=' & $.*.id
                             }
                         )]
 
@@ -211,13 +203,13 @@ entities:
                       text: тип
                 source: >
                     (
-                        $nsid := "seaf.ta.components.k8s.namespace." & $params.id;
-                        $services := $."seaf.ta.components.k8s.service".$spread()[*.namespaceID = $nsid]; 
+                        $nsid := "seaf.ta.components.k8s_namespace." & $params.id;
+                        $services := $."seaf.ta.components.k8s_service".$spread()[*.namespace_id = $nsid]; 
                         [$services.$spread().(
                             {
-                                "name"  : $.*.name,
+                                "name"  : $.*.title,
                                 "type"  : $.*.type,
-                                "link" : '/entities/seaf.ta.components.k8s.service/get?id=' & $.*.id
+                                "link" : '/entities/seaf.ta.components.k8s_service/get?id=' & $.*.id
                             }
                         )]
 

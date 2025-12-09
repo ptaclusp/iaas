@@ -33,7 +33,11 @@ entities:
                             $namespace_id := $.namespace_id;
                             $deployments := $lookup($context, $kube_config.deployment.entity).*[namespace_id = $namespace_id];
                             $selector := $.selector;
-                            $deps := $filter($deployments, function($item) { $keys($selector)[$lookup($selector, $) != ($exists($lookup($item.labels, $)) ? $lookup($item.labels, $) : "") ] ~> $count() ~> $not() });
+                            $deps := $filter($deployments, function($item) {
+                                /* $keys($selector)[$lookup($selector, $) != ($exists($lookup($item.labels, $)) ? $lookup($item.labels, $) : "") ] ~> $count() ~> $not() */
+                                $keys($selector)[$lookup($selector, $) != ($exists($lookup(($item.labels ? $item.labels : {}), $)) ? $lookup($item.labels, $) : "") ] ~> $count() ~> $not()
+                            });
+
                             /*
                             { 
                                 (

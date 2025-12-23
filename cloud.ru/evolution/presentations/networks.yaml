@@ -9,7 +9,6 @@ entities:
             text: Наименование сети
             sortable: true
             align: left
-            link: link
             width: 300
           - value: description
             text: Описание
@@ -41,5 +40,5 @@ entities:
           (
               $domain := $params.domain;
               $dc := $params.dc;
-             [$reverse_evo_networks($, $domain)[dc = $dc]]
+              [$reverse_evo_networks($, $domain)[dc = $dc]];
           )

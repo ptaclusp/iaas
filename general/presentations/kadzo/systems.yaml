@@ -1,0 +1,119 @@
+entities:
+  seaf.ta.reverse.general.systems_kadzo:
+    presentations:
+      systems_ta:
+        type: markdown
+        template: ../templates/systems_kadzo.md
+        source: >
+          (
+              $systems := $."kadzo.v2023.systems" ~> $each(function($v, $k){$k = $params.id ? {$k:$v ~> | $ | {"id": $k, "domain": $params.domain, 'obj_type': "Система" }|}});
+              $kb_systems := $."kadzo.v2023.kb_systems" ~> $each(function($v, $k){$k = $params.id ? {$k:$v ~> | $ | {"id": $k, "domain": $params.domain, 'obj_type': "Система КБ" }|}});
+              $tech_services := $."kadzo.v2023.tech_services" ~> $each(function($v, $k){$k = $params.id ? {$k:$v ~> | $ | {"id": $k, "domain": $params.domain, 'obj_type': "Технический сервис" }|}});
+              $result := $append($append($systems, $kb_systems), $tech_services);
+              $result.*
+          )
+
+      components:
+        type: table
+        headers:
+          - value: app_component_name
+            text: Компонент приложения
+            sortable: true
+            align: left
+            width: 150
+          - value: app_component_type
+            text: Тип компонента приложения
+            align: left
+            width: 50
+          - value: name
+            text: Техкомпонент
+            sortable: true
+            align: left
+            link: link
+            width: 150
+          - value: entity_type
+            text: Тип техкомпонента
+            sortable: true
+            align: left
+            width: 200
+          - value: entity_name
+            text: Наименование техкомпонента
+            sortable: true
+            align: left
+            width: 200
+          - value: dc
+            text: Провайдер/Услуга/ЦОД
+            width: 200
+        origin:
+          allobjects: seaf.ta.reverse.general.allobjects
+          manifest: "($)"
+          kadzo_objects: kadzo.v2023.objects_by_domains
+        source: >
+          (
+              $entities := allobjects;
+              $manifest := manifest;
+              $kadzo_objects := kadzo_objects;
+              $domain := $exists($kadzo_objects) and $count($kadzo_objects) > 0 ? $lookup($merge($kadzo_objects.*), $params.id).domain  : $params.domain;
+              $domain_matcher := $eval('/^' & $domain & '.*/');
+              $tech_params := $manifest."kadzo.v2023.tech_params" ~> $each(function($v, $k){$v.system = $params.id ? {$k:$v}});
+              $config := $manifest."seaf.ta.reverse.general".config;
+              $reverse_entities := $config.entities.**.model;
+              $tags := $config.entities.$spread()[$keys() = $domain].**.tags.*;
+              $tags_tp := $config.entities.$spread()[$keys() = $domain].**.tags.tech_params;
+              $tags_systems := $config.entities.$spread()[$keys() = $domain].**.tags.systems;
+              $tags_tech_services := $config.entities.$spread()[$keys() = $domain].**.tags.tech_services;
+              $components := $reverse_entities.(
+                  $lookup($manifest, $) ~> $each(function($v, $k){$domain_matcher($k) and $v.**.tags[$keys() in $tags] ? {$k: $v}})
+              ) ~> $distinct();
+              $tech_components := $tech_params.$spread().(
+                  $tech_param_id := $keys()[0];
+                  $tech_param := $;
+                  $filtered_components := $components.($tech_param_id in $.**.tags[$keys() in $tags_tp].*.$split(", ") ? $);
+                  $filtered_components.(
+                      {
+                          'id': $keys()[0],
+                          'component_name': $tech_param.*.software,
+                          'component_type': $tech_param.*.type,
+                          'component_vendor': $tech_param.*.vendor
+                      }
+                  )
+              );
+              $direct_systems_links := (
+                  $filtered_components := $components.($params.id in $.**.tags[$keys() in $tags_systems].*.$split(", ") ? $);
+                  $filtered_components.(
+                      {
+                          'id': $keys()[0],
+                          'component_name': 'Нет привязки к техпараметру',
+                          'component_type': 'Нет привязки к техпараметру',
+                          'component_vendor': 'Нет привязки к техпараметру'
+                      }
+                  )
+              );
+              $direct_tech_services_links := (
+                  $filtered_components := $components.($params.id in $.**.tags[$keys() in $tags_tech_services].*.$split(", ") ? $);
+                  $filtered_components.(
+                      {
+                          'id': $keys()[0],
+                          'component_name': 'Нет привязки к техпараметру',
+                          'component_type': 'Нет привязки к техпараметру',
+                          'component_vendor': 'Нет привязки к техпараметру'
+                      }
+                  )
+              );
+              $sum := $append($append($tech_components, $direct_systems_links), $direct_tech_services_links);
+              [$sum.(
+                  $iter := $;
+                  $entities[id = $iter.id].(
+                      $entity := $;
+                          {
+                              'app_component_name': $iter.component_name,
+                              'app_component_type': $iter.component_type,
+                              'name': $entity.title,
+                              'link':$entity.link,
+                              'entity_type': $entity.entity_type,
+                              'entity_name': $entity.entity_title,
+                              'dc': $entity.dc
+                          }
+                  )
+              )]
+          )

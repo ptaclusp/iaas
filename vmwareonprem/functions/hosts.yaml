@@ -21,15 +21,17 @@ functions:
           $hosts_view := dataset."seaf.ta.reverse.general".config.entities.vmwareonprem.hosts.view;
       
       
-          $dcs := $lookup(dataset, $dcs_entity)[$domain_matcher($keys())];
-          $vdcs := $lookup(dataset, $vdcs_entity)[$domain_matcher($keys())];
-          $hosts := $lookup(dataset, $hosts_entity)[$domain_matcher($keys())];
+          $dcs := $lookup(dataset, $dcs_entity) ~> $each(function($v, $k){$domain_matcher($k) ? {$k:$v}});
+          $vdcs := $lookup(dataset, $vdcs_entity) ~> $each(function($v, $k){$domain_matcher($k) ? {$k:$v}});
+          $hosts := $lookup(dataset, $hosts_entity) ~> $each(function($v, $k){$domain_matcher($k) ? {$k:$v}});
       
           [[$hosts.$spread().{
               'id': $keys(),
               'host': *
           }].(
               $dc := $lookup($dcs, host.dc);
+              $tags := $join(host.tags.($ != null and $.$keys() != null and $.* != null ? ($.$keys() & ': ' & $.*)), "\n");
+
               {
                   'id': id,
                   'short_id': host.id,
@@ -42,6 +44,7 @@ functions:
                   'entity_title': "ESXi хосn виртуализации в локальном кластере VMware",
                   'vdc': host.vdc,
                   'vdc_title': host.vdc_title,
+                  'tags': $tags,
                   'dc': host.dc,
                   'dc_title': $dc.title
               }
